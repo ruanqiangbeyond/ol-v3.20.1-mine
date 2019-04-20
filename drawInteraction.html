@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Draw Features</title>
+        <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+        <link
+            rel="stylesheet"
+            href="https://openlayers.org/en/v3.20.1/css/ol.css"
+            type="text/css"
+        />
+        <style>
+            button {
+                position: absolute;
+                top: 10px;
+                right: 20px;
+                z-index: 1;
+            }
+        </style>
+        <!-- The line below is only needed for old environments like Internet Explorer and Android 4.x -->
+        <script src="https://openlayers.org/en/v3.20.1/build/ol.js"></script>
+    </head>
+    <body>
+        <div id="map" class="map">
+            <button id="draw">draw</button>
+        </div>
+        <script>
+            var id = -1;
+            var raster = new ol.layer.Tile({
+                source: new ol.source.OSM()
+            });
+            var vector = new ol.layer.Vector({
+                source: new ol.source.Vector({ wrapX: false })
+            });
+
+            var pointVec = new ol.layer.Vector({
+                source: new ol.source.Vector({
+                    wrapX: false
+                }),
+                style: new ol.style.Style({
+                    image: new ol.style.Circle({
+                        radius: 5,
+                        fill: new ol.style.Fill({
+                            color: "orange"
+                        }),
+                        stroke: new ol.style.Stroke({
+                            color: "gray",
+                            width: 2
+                        })
+                    })
+                })
+            });
+
+            var map = new ol.Map({
+                layers: [raster, vector, pointVec],
+                target: "map",
+                view: new ol.View({
+                    center: ol.proj.fromLonLat([108, 34]),
+                    zoom: 4
+                })
+            });
+
+            var draw = new ol.interaction.Draw({
+                source: vector.getSource(),
+                type: "Point"
+            });
+            draw.setActive(false);
+            map.addInteraction(draw);
+
+            draw.on("drawend", function(e) {
+                this.setActive(false);
+                pointVec.getSource().addFeature(
+                    (function() {
+                        var _f = new ol.Feature({
+                            geometry: new ol.geom.Point(
+                                e.feature.getGeometry().getCoordinates()
+                            )
+                        });
+                        _f.setId(id);
+                        return _f;
+                    })()
+                );
+                overLay.setPosition(undefined);
+            });
+
+            document.onkeydown = function(e) {
+              if (e.keyCode == 27 && draw.getActive()) {
+                overLay.setPosition(undefined);
+                draw.setActive(false);
+              }
+            };
+
+            map.getViewport().oncontextmenu = function(e) {
+                e.preventDefault();
+                vector.getSource().clear();
+                var lastFeature = pointVec.getSource().getFeatureById(id);
+                lastFeature && pointVec.getSource().removeFeature(lastFeature);
+            };
+
+            var element = document.createElement("div");
+            element.style.height = "30px";
+            element.style.lineHeight = "30px";
+            element.style.textAlign = "center";
+            element.style.width = "266px";
+            element.style.border = "1px solid skyblue";
+            element.style.backgroundColor = "white";
+            element.innerHTML = '单击左键标记位置，右键或Esc取消';
+            var overLay = new ol.Overlay({
+                element: element,
+                offset: [5, 0]
+            });
+            map.addOverlay(overLay);
+            map.on("pointermove", function(e) {
+                draw.getActive() &&
+                    overLay.setPosition(this.getCoordinateFromPixel(e.pixel));
+            });
+
+            document.getElementById("draw").onclick = function() {
+                draw.setActive(true);
+                id = new Date().getTime();
+            };
+        </script>
+    </body>
+</html>
